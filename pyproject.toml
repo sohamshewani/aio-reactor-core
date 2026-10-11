@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel>=0.40.0", "cmake>=3.25.0", "ninja>=1.11.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aio-reactor-core"
+version = "0.1.0"
+description = "High-performance asynchronous reactor core in Python with C/C++ extensions"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-benchmark>=4.0.0",
+]
+
+[tool.setuptools]
+packages = ["aio_reactor_core"]
+
+[tool.setuptools.build-meta]
+# Custom build steps can be orchestrated via setuptools or standard python scripts,
+# but since standard targets are requested, we utilize setuptools + custom hooks or standard poetry/hatch equivalents.
+# Here we use standard setuptools configuration.
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+archs = ["auto64"]
+build-frontend = "build"
+
+# Task runner definitions using 'poethepoet' to fulfill standard working targets
+[tool.poe.tasks]
+all = ["clean", "build", "test"]
+
+[tool.poe.tasks.build]
+shell = """
+python -m pip install --upgrade pip
+python -m build --wheel
+"""
+
+[tool.poe.tasks.test]
+shell = """
+if [ -d "tests" ]; then
+    pytest;
+else
+    echo "Directory 'tests' not found. Skipping tests.";
+fi
+"""
+
+[tool.poe.tasks.clean]
+shell = """
+rm -rf build/ dist/ *.egg-info .pytest_cache .benchmarks
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -type f -name "*.so" -delete
+find . -type f -name "*.pyd" -delete
+"""
+
+[tool.poe.tasks.benchmark]
+shell = """
+if [ -d "benchmarks" ]; then
+    pytest benchmarks/;
+elif python -c "import pytest_benchmark" 2>/dev/null; then
+    pytest --benchmark-only;
+else
+    echo "No benchmarks directory or benchmark plugin found. Skipping.";
+fi
+"""
+
+# Environment configuration for C/C++ compilation optimization flags via setuptools/distutils
+# These environment variables will be picked up by standard C++ build extensions (e.g., CMake / setuptools Extension)
+[tool.aio-reactor-core.cmake.cache-variables]
+CMAKE_BUILD_TYPE = "Release"
+CMAKE_C_FLAGS = "-O3 -Wall -Wextra"
+CMAKE_CXX_FLAGS = "-O3 -Wall -Wextra -std=c++17"
